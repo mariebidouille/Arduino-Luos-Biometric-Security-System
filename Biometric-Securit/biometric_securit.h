@@ -1,38 +1,24 @@
 /******************************************************************************
- * @file servo_drv
- * @brief driver example a simple servo
+ * @file biometric_securit
+ * @brief app example 
  * @author Luos
  * @version 0.0.0
  ******************************************************************************/
-#ifndef SERVO_DRV_H
-#define SERVO_DRV_H
+#ifndef BIOMETRIC_SECURIT_H
+#define BIOMETRIC_SECURIT_H
 
 #include "luos.h"
+#include "luos_hal.h"
 
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
-typedef struct
-{
-    union
-    {
-        struct __attribute__((__packed__))
-        {
-            angular_position_t max_angle;
-            float min_pulse_time;
-            float max_pulse_time;
-        };
-        unsigned char unmap[3 * sizeof(float)];
-    };
-} servo_parameters_t;
+#define UPDATE_PERIOD_MS 200
 
-typedef struct
+typedef enum 
 {
-    angular_position_t angle;
-    servo_parameters_t param;
-} servo_motor_t;
-
-#define SERVO_PIN 15
+    BIOMETRIC_SECURITY_TYPE = LUOS_LAST_TYPE
+}security_system_type_t;
 
 /*******************************************************************************
  * Variables
@@ -41,9 +27,7 @@ typedef struct
 /*******************************************************************************
  * Functions
  ******************************************************************************/
-void ServoDrv_Init(void);
+void BiometricSecurity_Init(void);
+void BiometricSecurity_Loop(void);
 
-uint8_t ServoDrv_SetPosition(angular_position_t angle);
-uint8_t ServoDrv_Parameter(servo_parameters_t param);
-
-#endif /* SERVO_DRV_H*/
+#endif /* BIOMETRIC_SECURITY_H */

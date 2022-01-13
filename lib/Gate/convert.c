@@ -171,8 +171,7 @@ void Convert_DataToLuos(service_t *service, char *data)
                     float fail_rate                                  = (float)failed_msg_nb * 100.0 / (float)repetition;
                     char tx_json[512];
 
-                    sprintf(tx_json, "{\"benchmark\":{\"data_rate\":%s", Convert_Float(data_rate));
-                    sprintf(tx_json, "%s\",\"fail_rate\":%s}}\n", tx_json, Convert_Float(fail_rate));
+                    sprintf(tx_json, "{\"benchmark\":{\"data_rate\":%s \",\"fail_rate\":%s}}\n", Convert_Float(data_rate), Convert_Float(fail_rate));
                     PipeLink_Send(service, tx_json, strlen(tx_json));
 
                     // restart sensor polling
@@ -391,6 +390,52 @@ void Convert_JsonToMsg(service_t *service, uint16_t id, luos_type_t type, const 
         // this should be a function because it is frequently used
         time = TimeOD_TimeFrom_s((float)json_getReal(item));
         TimeOD_TimeToMsg(&time, msg);
+        Luos_SendMsg(service, msg);
+    }
+    //enroll
+    if (json_getProperty(jobj, "enroll") != NULL)
+    {
+        msg->header.cmd = ENROLL;
+        msg->header.size = 0;
+        Luos_SendMsg(service, msg);
+    }
+    //delete
+    if (json_getProperty(jobj, "delete") != NULL)
+    {
+        msg->header.cmd = DELETE;
+        msg->header.size = 0;
+        Luos_SendMsg(service, msg);
+    }
+    //check
+    if (json_getProperty(jobj, "check") != NULL)
+    {
+        msg->header.cmd = CHECK;
+        msg->header.size = 0;
+        Luos_SendMsg(service, msg);
+    }
+    //text 
+    item = json_getProperty(jobj, "text");
+    if ((item != NULL) && ((json_getType(item) == JSON_TEXT) || (json_getType(item) == JSON_ARRAY)))
+    //if ((item != NULL) && (json_getType(item) == JSON_TEXT))
+    {
+        int i            = 0;
+        char *text      = (char *)json_getValue(item);
+        msg->header.size = strlen(text);
+        // Change size to fit into 32 characters
+        if (msg->header.size > 31)
+        {
+            msg->header.size = 31;
+        }
+        // Clean the '\0' even if we short the text
+        text[msg->header.size] = '\0';
+        // Copy the text into the data field of the message
+        for (i = 0; i < msg->header.size; i++)
+        {
+            msg->data[i] = text[i];
+        }
+        //memcpy(msg->data[0], text, msg->header.size);
+        msg->data[msg->header.size] = '\0';
+        msg->header.cmd             = SET_CMD;
         Luos_SendMsg(service, msg);
     }
     // Pid
@@ -711,6 +756,7 @@ uint16_t Convert_StartServiceData(char *data, char *alias)
 uint16_t Convert_MsgToData(msg_t *msg, char *data)
 {
     float fdata;
+    char txt[32];
     switch (msg->header.cmd)
     {
         case LINEAR_POSITION:
@@ -847,9 +893,11 @@ uint16_t Convert_MsgToData(msg_t *msg, char *data)
                         break;
                 }
                 // Create the Json content
-                sprintf(data, "\"%s\":[%s", name, Convert_Float(value[0]));
-                sprintf(data, "%s,%s", data, Convert_Float(value[1]));
-                sprintf(data, "%s,%s],", data, Convert_Float(value[2]));
+                sprintf(data, "\"%s\":[%s,%s,%s],",
+                        name,
+                        Convert_Float(value[0]),
+                        Convert_Float(value[1]),
+                        Convert_Float(value[2]));
             }
             break;
         case QUATERNION:
@@ -860,10 +908,11 @@ uint16_t Convert_MsgToData(msg_t *msg, char *data)
                 float value[4];
                 memcpy(value, msg->data, msg->header.size);
                 //create the Json content
-                sprintf(data, "\"quaternion\":[%s,", Convert_Float(value[0]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[1]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[2]));
-                sprintf(data, "%s%s],", data, Convert_Float(value[3]));
+                sprintf(data, "\"quaternion\":[%s,%s,%s,%s],",
+                        Convert_Float(value[0]),
+                        Convert_Float(value[1]),
+                        Convert_Float(value[2]),
+                        Convert_Float(value[3]));
             }
             break;
         case ROT_MAT:
@@ -874,15 +923,16 @@ uint16_t Convert_MsgToData(msg_t *msg, char *data)
                 float value[9];
                 memcpy(value, msg->data, msg->header.size);
                 //create the Json content
-                sprintf(data, "\"rotational_matrix\":[%s,", Convert_Float(value[0]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[1]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[2]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[3]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[4]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[5]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[6]));
-                sprintf(data, "%s%s,", data, Convert_Float(value[7]));
-                sprintf(data, "%s%s],", data, Convert_Float(value[8]));
+                sprintf(data, "\"rotational_matrix\":[%s,%s,%s,%s,%s,%s,%s,%s,%s],",
+                        Convert_Float(value[0]),
+                        Convert_Float(value[1]),
+                        Convert_Float(value[2]),
+                        Convert_Float(value[3]),
+                        Convert_Float(value[4]),
+                        Convert_Float(value[5]),
+                        Convert_Float(value[6]),
+                        Convert_Float(value[7]),
+                        Convert_Float(value[8]));
             }
             break;
         case HEADING:
@@ -905,6 +955,48 @@ uint16_t Convert_MsgToData(msg_t *msg, char *data)
                 memcpy(value, msg->data, msg->header.size);
                 //create the Json content
                 sprintf(data, "\"pedometer\":%2ld,\"walk_time\":%2ld,", value[0], value[1]);
+            }
+            break;
+        case ENROLL:
+            // check size
+            if (msg->header.size == sizeof(char))
+            {
+                // Size ok, now fill the struct from msg data
+                //create the Json content
+                if (msg->data[0])
+                {
+                    memcpy(data, "\"enroll\":true,", sizeof("\"enroll\":true,"));
+                }
+                else
+                {
+                    memcpy(data, "\"enroll\":false,", sizeof("\"enroll\":false,"));
+                }
+            }
+            break;
+        case CHECK:
+            if (msg->header.size == sizeof(char))
+            {
+                if (msg->data[0])
+                {
+                    memcpy(data, "\"check\":true,", sizeof("\"check\":true,"));
+                }
+                else
+                {
+                    memcpy(data, "\"check\":false,", sizeof("\"check\":false,"));
+                }
+            }
+            break;
+        case DELETE:
+            if (msg->header.size == sizeof(char))
+            {
+                if (msg->data[0])
+                {
+                    memcpy(data, "\"delete\":true,", sizeof("\"delete\":true,"));
+                }
+                else
+                {
+                    memcpy(data, "\"delete\":false,", sizeof("\"delete\":false,"));
+                }
             }
             break;
         default:
@@ -949,7 +1041,7 @@ void Convert_VoidData(service_t *service)
 void Convert_AssertToData(service_t *service, uint16_t source, luos_assert_t assertion)
 {
     char assert_json[512];
-    sprintf(assert_json, "{\"assert\":{\"node_id\":%d,\"file\":\"%s\",\"line\":%d}}\n", source, assertion.file, (unsigned int)assertion.line);
+    sprintf(assert_json, "{\"assert\":{\"node_id\":,\"file\":\"%s\",\"line\":%d}}\n", source, assertion.file, (unsigned int)assertion.line);
     // Send the message to pipe
     PipeLink_Send(service, assert_json, strlen(assert_json));
 }

@@ -6,12 +6,13 @@ extern "C"
 #endif
 
 #include "luos.h"
-#include "luos_hal.h"
+#include "gate.h"
+#include "pipe.h"
 #include "button.h"
 #include "fingerprint.h"
 #include "lcd.h"
 #include "led.h"
-#include "servo_drv.h"
+#include "servo_motor.h"
 #include "biometric_security.h"
 
 #ifdef __cplusplus
@@ -21,21 +22,27 @@ extern "C"
 void setup() {
   // put your setup code here, to run once:
   Luos_Init();
-  Fingerprint_Init();
+  Gate_Init();
+  Pipe_Init();
   Lcd_Init(); 
-  Led_Init();
-  ServoDrv_Init();
-  Button_Init();
+  Servo_Init();
   BiometricSecurity_Init();
+  
+  /* Fingerprint_Init();
+  Led_Init();
+  Button_Init(); */
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   Luos_Loop();
-  Fingerprint_Loop();
+  Gate_Loop();
+  Pipe_Loop();
   Lcd_Loop(); 
-  Led_Loop();
-  ServoDrv_Loop();
-  Button_Loop();
+  Servo_Loop();
   BiometricSecurity_Loop();
+
+  /* Fingerprint_Loop();
+  Led_Loop();
+  Button_Loop(); */
 }

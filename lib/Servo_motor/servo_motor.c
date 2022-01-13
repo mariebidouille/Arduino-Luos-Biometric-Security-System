@@ -1,23 +1,11 @@
 /******************************************************************************
- * @file servo_drv
- * @brief driver example a simple servo
+ * @file servo_motor
+ * @brief driver example a simple servo motor
  * @author Luos
  * @version 0.0.0
  ******************************************************************************/
-#include <Arduino.h>
-#include <Servo.h>
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-#include "luos_hal.h"
 #include "servo_drv.h"
-
-#ifdef __cplusplus
-}
-#endif
+#include "servo_motor.h"
 
 /*******************************************************************************
  * Definitions
@@ -26,64 +14,56 @@ extern "C"
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-Servo myservo;
-servo_motor_t servo;
+static service_t *service_servo;
 
 /*******************************************************************************
- * Function
+ * Functions
  ******************************************************************************/
+static void Servo_MsgHandler(service_t *service, msg_t *msg);
 
 /******************************************************************************
  * @brief init must be call in project init
  * @param None
  * @return None
  ******************************************************************************/
-void ServoDrv_Init(void)
+void Servo_Init(void)
 {
-    myservo.attach(SERVO_PIN);
+    ServoDrv_Init();
+
+    revision_t revision = {.major = 1, .minor = 0, .build = 0};
+
+    service_servo = Luos_CreateService(Servo_MsgHandler, SERVO_MOTOR_TYPE, "servo", revision);
     
-    servo_parameters_t param;
-
-    param.max_angle      = 180.0;
-    param.max_pulse_time = 1.5 / 1000;
-    param.min_pulse_time = 0.5 / 1000;
-
-    servo.param           = param;
-    servo.angle           = 0.0;
 }
 
 /******************************************************************************
- * @brief init must be call in project init
+ * @brief loop must be call in project loop
  * @param None
  * @return None
  ******************************************************************************/
-uint8_t ServoDrv_SetPosition(angular_position_t angle)
+void Servo_Loop(void)
 {
-    servo.angle = angle;
-    // limit angle value
-    if (servo.angle < 0.0)
-    {
-        servo.angle = 0.0;
-    }
-    else if (servo.angle > servo.param.max_angle)
-    {
-        servo.angle = servo.param.max_angle;
-    }
-
-    myservo.write(AngularOD_PositionTo_deg(servo.angle));
-
-    return SUCCEED;
 }
 
 /******************************************************************************
- * @brief init must be call in project init
- * @param None
+ * @brief Msg Handler call back when a msg receive for this service
+ * @param Service destination
+ * @param Msg receive
  * @return None
  ******************************************************************************/
-uint8_t ServoDrv_Parameter(servo_parameters_t param)
+static void Servo_MsgHandler(service_t *service, msg_t *msg)
 {
-    servo.param.max_angle      = param.max_angle;
-    servo.param.min_pulse_time = param.min_pulse_time;
-    servo.param.max_pulse_time = param.max_pulse_time;
-    return SUCCEED;
+    servo_motor_t servo;
+    if (msg->header.cmd == ANGULAR_POSITION)
+    {
+        // set the motor position
+        AngularOD_PositionFromMsg((angular_position_t *)&servo.angle, msg);
+        ServoDrv_SetPosition(servo.angle);
+    }
+    else if (msg->header.cmd == PARAMETERS)
+    {
+        // set the servo parameters
+        memcpy((void *)servo.param.unmap, msg->data, sizeof(servo_parameters_t));
+        ServoDrv_Parameter(servo.param);
+    }
 }

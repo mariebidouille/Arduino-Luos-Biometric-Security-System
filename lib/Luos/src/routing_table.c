@@ -100,7 +100,7 @@ uint16_t RoutingTB_NodeIDFromID(uint16_t id)
 uint16_t RoutingTB_IDFromService(service_t *service)
 {
     // make sure route table is clean before sharing id
-    if (last_routing_table_entry == 0)
+   if (last_routing_table_entry == 0)
     {
         return 0;
     }
